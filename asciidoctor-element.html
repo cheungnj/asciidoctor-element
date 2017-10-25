@@ -125,6 +125,7 @@ the script content will _not_ update the rendered asciidoc!
      */
     attached: function() {
       this._attached = true;
+      this._outputElement = this.outputElement;
       this.render();
     },
 
@@ -132,6 +133,20 @@ the script content will _not_ update the rendered asciidoc!
       this._attached = false;
     },
 
+    /**
+     * Unindents the asciidoc source that will be rendered.
+     */
+    unindent: function(text) {
+      return this._unindent(text);
+    },
+
+    /**
+     * The `asciidoctor-render-complete` event is fired once Asciidoc to HTML
+     * conversion has finished, and the DOM has been populated via the resulting
+     * HTML.
+     *
+     * @event asciidoctor-render-complete
+     */
     /**
      * Renders `asciidoc` into this element's DOM.
      *
@@ -144,13 +159,16 @@ the script content will _not_ update the rendered asciidoc!
     render: function() {
       if (!this._attached) return;
       if (!this.asciidoc) {
-        this.$.content.innerHTML = '';
+        // this.$.content.innerHTML = '';
+        Polymer.dom(this._outputElement).innerHTML = '';
         return;
       }
 
-      this.$.content.innerHTML = Opal.Asciidoctor.$convert(this.asciidoc);
+      // this.$.content.innerHTML = Opal.Asciidoctor.$convert(this.asciidoc);
+      Polymer.dom(this._outputElement).innerHTML = Opal.Asciidoctor.$convert(this.asciidoc);
 
-      var codeElems = Polymer.dom(this.$.content).querySelectorAll('pre.highlight code[data-lang]');
+      // var codeElems = Polymer.dom(this.$.content).querySelectorAll('pre.highlight code[data-lang]');
+      var codeElems = Polymer.dom(this._outputElement).querySelectorAll('pre.highlight code[data-lang]');
       for (var i = 0, len = codeElems.length; i < len; i++) {
         var codeElem = codeElems[i];
         var codeText = codeElem.textContent;
@@ -159,10 +177,11 @@ the script content will _not_ update the rendered asciidoc!
           codeElem.innerHTML = highlighted;
         }
       }
+      this.fire('asciidoc-render-complete', {}, {composed: true});
     },
 
     _highlight: function(code, lang) {
-      var event = this.fire('syntax-highlight', {code: code, lang: lang});
+      var event = this.fire('syntax-highlight', {code: code, lang: lang}, {composed: true});
       return event.detail.code || code;
     },
 
@@ -178,6 +197,11 @@ the script content will _not_ update the rendered asciidoc!
       }, null);
 
       return lines.map(function(l) { return l.substr(indent); }).join('\n');
+    },
+
+    get outputElement () {
+      var child = Polymer.dom(this).queryDistributedElements('[slot="asciidoc-html"]')[0];
+      return child || this.$.content;
     },
 
     /**
@@ -197,7 +221,7 @@ the script content will _not_ update the rendered asciidoc!
         // Note: if we are using the file:// protocol, the status code will be 0
         // for all outcomes (successful or otherwise).
         if (status === 0 || (status >= 200 && status < 300)) {
-          this.sanitize = !this.disableRemoteSanitization;
+          // this.sanitize = !this.disableRemoteSanitization;
           this.asciidoc = e.target.response;
         } else {
           this._handleError(e);
@@ -207,6 +231,18 @@ the script content will _not_ update the rendered asciidoc!
       xhr.open('GET', url);
       xhr.setRequestHeader('Accept', 'text/asciidoc');
       xhr.send();
+    },
+
+    /**
+     * Fired when an error is received while fetching remote markdown content.
+     *
+     * @event asciidoc-request-error
+     */
+    _handleError: function(e) {
+      var evt = this.fire('asciidoc-request-error', e, {cancelable: true});
+      if (!evt.defaultPrevented) {
+        this.asciidoc = 'Failed loading asciidoc source';
+      }
     },
 
     _onScriptAttributeChanged: function(mutation) {
