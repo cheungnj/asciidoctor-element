@@ -42,11 +42,16 @@ the script content will _not_ update the rendered asciidoc!
 @demo demo/index.html
 -->
 <dom-module id="asciidoctor-element">
-
   <template>
-    <div id="content"></div>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <slot name="markdown-html">
+      <div id="content"></div>
+    </slot>
   </template>
-
 </dom-module>
 
 <script>
