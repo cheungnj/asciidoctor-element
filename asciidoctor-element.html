@@ -64,19 +64,46 @@ the script content will _not_ update the rendered asciidoc!
         observer: 'render',
         type: String,
         value: null
+      },
+      /**
+       * A reference to the XMLHttpRequest instance used to generate the
+       * network request.
+       *
+       * @type {XMLHttpRequest}
+       */
+      xhr: {
+        type: Object,
+        notify: true,
+        readOnly: true
       }
 
     },
 
     ready: function() {
-      if (!this.asciidoc) {
-        // Use the AsciiDoc from the first `<script>` descendant whose MIME type starts with
-        // "text/asciidoc". Script elements beyond the first are ignored.
-        var asciidocElement = Polymer.dom(this).querySelector('[type^="text/asciidoc"]');
-        if (asciidocElement != null) {
-          this.asciidoc = this._unindent(asciidocElement.textContent);
-        }
+      if (this.asciidoc) {
+        return;
       }
+
+      // Use the AsciiDoc from the first `<script>` descendant whose MIME type starts with
+      // "text/asciidoc". Script elements beyond the first are ignored.
+      this._asciidocElement = Polymer.dom(this).querySelector('[type^="text/asciidoc"]');
+      // if (asciidocElement != null) {
+      //   this.asciidoc = this._unindent(asciidocElement.textContent);
+      // }
+      if (!this._asciidocElement) {
+        return;
+      }
+
+      if (this._asciidocElement.src) {
+        this._request(this._asciidocElement.src);
+      }
+
+      if (this._asciidocElement.textContent.trim() !== '') {
+        this.asciidoc = this._unindent(this._asciidocElement.textContent);
+      }
+
+      var observer = new MutationObserver(this._onScriptAttributeChanged.bind(this));
+      observer.observe(this._asciidocElement, { attributes: true });
     },
 
     /**
@@ -147,6 +174,42 @@ the script content will _not_ update the rendered asciidoc!
 
       return lines.map(function(l) { return l.substr(indent); }).join('\n');
     },
+
+    /**
+     * Fired when the XHR finishes loading
+     *
+     * @event asciidoc-loadend
+     */
+    _request: function(url) {
+      this._setXhr(new XMLHttpRequest());
+      var xhr = this.xhr;
+      if (xhr.readyState > 0) {
+        return null;
+      }
+      xhr.addEventListener('error', this._handleError.bind(this));
+      xhr.addEventListener('loadend', function(e) {
+        var status = this.xhr.status || 0;
+        // Note: if we are using the file:// protocol, the status code will be 0
+        // for all outcomes (successful or otherwise).
+        if (status === 0 || (status >= 200 && status < 300)) {
+          this.sanitize = !this.disableRemoteSanitization;
+          this.asciidoc = e.target.response;
+        } else {
+          this._handleError(e);
+        }
+        this.fire('asciidoc-loadend', e);
+      }.bind(this));
+      xhr.open('GET', url);
+      xhr.setRequestHeader('Accept', 'text/asciidoc');
+      xhr.send();
+    },
+
+    _onScriptAttributeChanged: function(mutation) {
+      if (mutation[0].attributeName !== 'src') {
+        return;
+      }
+      this._request(this.asciidocElement.src);
+    }
 
   });
 
