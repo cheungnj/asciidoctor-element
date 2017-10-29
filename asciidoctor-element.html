@@ -140,6 +140,11 @@ the script content will _not_ update the rendered asciidoc!
       return this._unindent(text);
     },
 
+    get outputElement () {
+      var child = Polymer.dom(this).queryDistributedElements('[slot="asciidoc-html"]')[0];
+      return child || this.$.content;
+    },
+
     /**
      * The `asciidoctor-render-complete` event is fired once Asciidoc to HTML
      * conversion has finished, and the DOM has been populated via the resulting
@@ -197,11 +202,6 @@ the script content will _not_ update the rendered asciidoc!
       }, null);
 
       return lines.map(function(l) { return l.substr(indent); }).join('\n');
-    },
-
-    get outputElement () {
-      var child = Polymer.dom(this).queryDistributedElements('[slot="asciidoc-html"]')[0];
-      return child || this.$.content;
     },
 
     /**
