@@ -228,8 +228,10 @@ the script content will _not_ update the rendered asciidoc!
         } else {
           this._handleError(e);
         }
+
         this.fire('asciidoc-loadend', e);
       }.bind(this));
+
       xhr.open('GET', url);
       xhr.setRequestHeader('Accept', 'text/asciidoc');
       xhr.send();
